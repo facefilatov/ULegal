@@ -39,17 +39,16 @@ html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Seg
 /* Dynamic width and font for inputs */
 .input{
   flex: 0 0 auto;
-  width: auto;
-  min-width: 40px;
-  max-width: 60px;
-  padding: 6px;
+  width: 52px;
+  padding: 6px 4px;
   border-radius: 8px;
   border:1px solid var(--panel-border);
   background: var(--input-bg);
   text-align:center;
-  font-size: clamp(12px,2.5vw,16px);
+  font-size: clamp(11px,2.5vw,15px);
   box-sizing:border-box;
 }
+.input::placeholder{font-size:clamp(9px,2vw,11px);}
 .input::-webkit-outer-spin-button, .input::-webkit-inner-spin-button { -webkit-appearance:none;margin:0; }
 
 .output{
@@ -80,8 +79,9 @@ html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Seg
 .modal h3{margin-top:0;}
 .bottom-disclaimer{position:fixed;bottom:0;width:100%;padding:12px 8px;text-align:center;font-size:12px;color:var(--legal);background:var(--bg);box-sizing:border-box;z-index:1000;border-top:1px solid #ccc;}
 @media(max-width:460px){
-  .input{ width:45px; }
-  .output{ min-width:110px; }
+  .input{width:48px;padding:5px 3px;}
+  .input::placeholder{font-size:9px;}
+  .output{min-width:110px;}
 }
 </style>
 </head>
@@ -137,7 +137,7 @@ html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Seg
     </div>
 
     <a id="explainLink" class="meta-link">How we calculated this?</a>
-    <div class="version">Public Beta 1.71</div>
+    <div class="version">Public Beta 2.0</div>
     <div class="footer-credit">© 2025 @kirillfilatov</div>
   </div>
 </div>
@@ -155,75 +155,73 @@ html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Seg
 </div>
 
 <script>
-function pad2(n){return String(n).padStart(2,'0');}
-function onlyDigits(s){return (s||'').replace(/\D/g,'');}
-function toIntSafe(s,max){const v=onlyDigits(s);if(v==='') return NaN;let n=parseInt(v,10);if(isNaN(n)) return NaN;if(n<0)n=0;if(typeof max==='number'&&n>max)n=max;return n;}
-function minutesFromInputs(hourEl,minEl){const h=toIntSafe(hourEl.value,23);const m=toIntSafe(minEl.value,59);if(isNaN(h)&&isNaN(m))return NaN;return (isNaN(h)?0:h)*60 + (isNaN(m)?0:m);}
-function minutesToHHMM(mins){mins=Math.round(mins);mins=((mins%1440)+1440)%1440;const h=Math.floor(mins/60),m=mins%60;return pad2(h)+':'+pad2(m);}
-function computeMaxActual(reportMinutes){return (reportMinutes>=300&&reportMinutes<=1139)?15*60:11*60+30;}
+const pad2=n=>String(n).padStart(2,'0');
+const onlyDigits=s=>(s||'').replace(/\D/g,'');
+const toIntSafe=(s,max)=>{const v=onlyDigits(s);if(!v)return NaN;let n=parseInt(v,10);return isNaN(n)?NaN:Math.min(Math.max(n,0),max??n);};
+const minutesFromInputs=(h,m)=>{const hv=toIntSafe(h.value,23),mv=toIntSafe(m.value,59);return isNaN(hv)&&isNaN(mv)?NaN:(isNaN(hv)?0:hv)*60+(isNaN(mv)?0:mv);};
+const minutesToHHMM=mins=>{mins=((Math.round(mins)%1440)+1440)%1440;return pad2(Math.floor(mins/60))+':'+pad2(mins%60);};
+const computeMaxActual=r=>(r>=300&&r<=1139)?900:690;
 
-const reportHourEl=document.getElementById('reportHour');
-const reportMinEl=document.getElementById('reportMin');
-const dutyHoursEl=document.getElementById('dutyHours');
-const dutyMinsEl=document.getElementById('dutyMins');
-const depHourEl=document.getElementById('depHour');
-const depMinEl=document.getElementById('depMin');
-const doorEl=document.getElementById('doorClosed');
-const explainLink=document.getElementById('explainLink');
-const modalBackdrop=document.getElementById('modalBackdrop');
-const modalContent=document.getElementById('modalContent');
-const closeModalBtn=document.getElementById('closeModal');
+const els={
+  reportHour:document.getElementById('reportHour'),
+  reportMin:document.getElementById('reportMin'),
+  dutyHours:document.getElementById('dutyHours'),
+  dutyMins:document.getElementById('dutyMins'),
+  depHour:document.getElementById('depHour'),
+  depMin:document.getElementById('depMin'),
+  door:document.getElementById('doorClosed'),
+  explainLink:document.getElementById('explainLink'),
+  modalBackdrop:document.getElementById('modalBackdrop'),
+  modalContent:document.getElementById('modalContent'),
+  closeModal:document.getElementById('closeModal')
+};
 
-function wireInput(el,max){
+const wireInput=(el,max)=>{
   el.addEventListener('input',()=>{
     el.value=onlyDigits(el.value);
-    if(el.value===''){doorEl.textContent='—';doorEl.classList.remove('error');return;}
-    let n=parseInt(el.value,10);if(isNaN(n))return;if(n<0)n=0;if(n>max)n=max;el.value=pad2(n);
+    if(!el.value){els.door.textContent='—';els.door.classList.remove('error');return;}
+    let n=parseInt(el.value,10);
+    if(!isNaN(n)){n=Math.max(0,Math.min(n,max));el.value=pad2(n);}
     update();
   });
-  el.addEventListener('blur',()=>{if(el.value==='')return;el.value=pad2(parseInt(onlyDigits(el.value)||'0',10));});
-  el.addEventListener('paste',(ev)=>{const text=(ev.clipboardData||window.clipboardData).getData('text');if(/\D/.test(text))ev.preventDefault();});
-  el.addEventListener('keydown',(ev)=>{if(ev.key.length===1&&/\D/.test(ev.key))ev.preventDefault();});
-}
-[reportHourEl,reportMinEl,dutyHoursEl,dutyMinsEl,depHourEl,depMinEl].forEach(el=>{wireInput(el,el.id.includes('Hour')?23:59);});
+  el.addEventListener('blur',()=>{if(el.value)el.value=pad2(parseInt(onlyDigits(el.value)||'0',10));});
+  el.addEventListener('paste',ev=>{if(/\D/.test((ev.clipboardData||window.clipboardData).getData('text')))ev.preventDefault();});
+  el.addEventListener('keydown',ev=>{if(ev.key.length===1&&/\D/.test(ev.key))ev.preventDefault();});
+};
 
-function update(){
-  doorEl.classList.remove('error');doorEl.style.textAlign='center';
-  const r=minutesFromInputs(reportHourEl,reportMinEl);
-  const duty=minutesFromInputs(dutyHoursEl,dutyMinsEl);
-  const dep=minutesFromInputs(depHourEl,depMinEl);
-  if(isNaN(r)||isNaN(duty)||isNaN(dep)){doorEl.textContent='—';return;}
-  const reportIsDay=(r>=300&&r<=1139);
-  const allowedScheduledMax=reportIsDay?13*60:11*60+30;
-  if(duty>allowedScheduledMax){
-    doorEl.classList.add('error');
-    doorEl.textContent='Error. Scheduled duty violates the contract.';
-    doorEl.style.fontSize='clamp(10px,2.5vw,14px)';
+[els.reportHour,els.reportMin,els.dutyHours,els.dutyMins,els.depHour,els.depMin].forEach(el=>wireInput(el,el.id.includes('Hour')?23:59));
+
+const update=()=>{
+  els.door.classList.remove('error');
+  const r=minutesFromInputs(els.reportHour,els.reportMin);
+  const duty=minutesFromInputs(els.dutyHours,els.dutyMins);
+  const dep=minutesFromInputs(els.depHour,els.depMin);
+  if(isNaN(r)||isNaN(duty)||isNaN(dep)){els.door.textContent='—';return;}
+  const maxScheduled=(r>=300&&r<=1139)?780:690;
+  if(duty>maxScheduled){
+    els.door.classList.add('error');
+    els.door.textContent='Error. Scheduled duty violates the contract.';
     return;
   }
   const maxActual=computeMaxActual(r);
-  const timeDiff=maxActual-duty;
-  if(timeDiff<0||!isFinite(timeDiff)){doorEl.classList.add('error');doorEl.textContent='Error. Verify your times';return;}
-  const doorClosedMinutes=dep+timeDiff;
-  doorEl.textContent=minutesToHHMM(doorClosedMinutes);
-  doorEl.style.fontSize='clamp(12px,3vw,16px)';
-  doorEl.style.textAlign='center';
-}
+  const diff=maxActual-duty;
+  if(diff<0||!isFinite(diff)){els.door.classList.add('error');els.door.textContent='Error. Verify your times';return;}
+  els.door.textContent=minutesToHHMM(dep+diff);
+};
 
-// Modal explanation
-explainLink.addEventListener('click',()=>{
-  const r=minutesFromInputs(reportHourEl,reportMinEl);
-  const duty=minutesFromInputs(dutyHoursEl,dutyMinsEl);
-  const dep=minutesFromInputs(depHourEl,depMinEl);
-  modalContent.innerHTML=`<p>Report Time: ${minutesToHHMM(r)}</p>
+els.explainLink.addEventListener('click',()=>{
+  const r=minutesFromInputs(els.reportHour,els.reportMin);
+  const duty=minutesFromInputs(els.dutyHours,els.dutyMins);
+  const dep=minutesFromInputs(els.depHour,els.depMin);
+  els.modalContent.innerHTML=`<p>Report Time: ${minutesToHHMM(r)}</p>
   <p>Scheduled Duty: ${minutesToHHMM(duty)}</p>
   <p>Scheduled Departure: ${minutesToHHMM(dep)}</p>
   <p>Max Actual Duty: ${computeMaxActual(r)/60}h</p>
   <p>Time Difference = Max Actual - Scheduled Duty</p>
   <p>Door Closed = Scheduled Departure + Time Difference</p>`;
-  modalBackdrop.style.display='flex';
+  els.modalBackdrop.style.display='flex';
 });
-closeModalBtn.addEventListener('click',()=>{modalBackdrop.style.display='none';});
+els.closeModal.addEventListener('click',()=>els.modalBackdrop.style.display='none');
 </script>
 </body>
 </html>
