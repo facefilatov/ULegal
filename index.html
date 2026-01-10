@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<title>ULegal</title>
+<title>ULegal? For United Airlines Flight Attendants</title>
 <style>
 :root{
   --navy:#054A91;
@@ -91,7 +91,7 @@ html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Seg
   <div id="calcCard" class="card">
     <div class="header">
       <div class="title">ULegal</div>
-      <div class="subtitle">Maximum Legal Duty Time Calculator</div>
+      <div class="subtitle">Maximum Legal Duty Time Calculator for United Airlines Flight Attendants</div>
       <div class="sub-subtitle">Domestic Only</div>
     </div>
 
@@ -137,7 +137,7 @@ html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Seg
     </div>
 
     <a id="explainLink" class="meta-link">How we calculated this?</a>
-    <div class="version">Public Beta 2.0</div>
+    <div class="version">Public Beta 1.71</div>
     <div class="footer-credit">© 2025 @kirillfilatov</div>
   </div>
 </div>
@@ -178,14 +178,13 @@ const els={
 
 const wireInput=(el,max,nextEl)=>{
   el.addEventListener('input',()=>{
-    el.value=onlyDigits(el.value);
-    if(!el.value){els.door.textContent='—';els.door.classList.remove('error');return;}
-    let n=parseInt(el.value,10);
+    const raw=onlyDigits(el.value);
+    if(!raw){el.value='';els.door.textContent='—';els.door.classList.remove('error');return;}
+    let n=parseInt(raw,10);
     if(!isNaN(n)){
       n=Math.max(0,Math.min(n,max));
-      const originalLength=el.value.length;
       el.value=pad2(n);
-      if(originalLength===2&&nextEl)nextEl.focus();
+      if(raw.length>=2&&nextEl)nextEl.focus();
     }
     update();
   });
