@@ -183,8 +183,9 @@ const wireInput=(el,max,nextEl)=>{
     let n=parseInt(el.value,10);
     if(!isNaN(n)){
       n=Math.max(0,Math.min(n,max));
+      const originalLength=el.value.length;
       el.value=pad2(n);
-      if(el.value.length===2&&nextEl)nextEl.focus();
+      if(originalLength===2&&nextEl)nextEl.focus();
     }
     update();
   });
