@@ -137,7 +137,7 @@ html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Seg
     </div>
 
     <a id="explainLink" class="meta-link">How we calculated this?</a>
-    <div class="version">Public Beta 2.0</div>
+    <div class="version">Public Beta 1.71</div>
     <div class="footer-credit">© 2025 @kirillfilatov</div>
   </div>
 </div>
@@ -176,12 +176,16 @@ const els={
   closeModal:document.getElementById('closeModal')
 };
 
-const wireInput=(el,max)=>{
+const wireInput=(el,max,nextEl)=>{
   el.addEventListener('input',()=>{
     el.value=onlyDigits(el.value);
     if(!el.value){els.door.textContent='—';els.door.classList.remove('error');return;}
     let n=parseInt(el.value,10);
-    if(!isNaN(n)){n=Math.max(0,Math.min(n,max));el.value=pad2(n);}
+    if(!isNaN(n)){
+      n=Math.max(0,Math.min(n,max));
+      el.value=pad2(n);
+      if(el.value.length===2&&nextEl)nextEl.focus();
+    }
     update();
   });
   el.addEventListener('blur',()=>{if(el.value)el.value=pad2(parseInt(onlyDigits(el.value)||'0',10));});
@@ -189,7 +193,12 @@ const wireInput=(el,max)=>{
   el.addEventListener('keydown',ev=>{if(ev.key.length===1&&/\D/.test(ev.key))ev.preventDefault();});
 };
 
-[els.reportHour,els.reportMin,els.dutyHours,els.dutyMins,els.depHour,els.depMin].forEach(el=>wireInput(el,el.id.includes('Hour')?23:59));
+wireInput(els.reportHour,23,els.reportMin);
+wireInput(els.reportMin,59,els.dutyHours);
+wireInput(els.dutyHours,23,els.dutyMins);
+wireInput(els.dutyMins,59,els.depHour);
+wireInput(els.depHour,23,els.depMin);
+wireInput(els.depMin,59);
 
 const update=()=>{
   els.door.classList.remove('error');
