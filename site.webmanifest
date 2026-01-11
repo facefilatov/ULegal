@@ -17,14 +17,3 @@
   "background_color": "#F0F2F5",
   "display": "standalone"
 }
-```
-
-**Your GitHub repo structure should be:**
-```
-/ULegal
-  ├── index.html
-  ├── favicon.ico
-  ├── apple-touch-icon.png (180x180)
-  ├── android-chrome-192x192.png
-  ├── android-chrome-512x512.png
-  └── site.webmanifest
