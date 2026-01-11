@@ -234,7 +234,7 @@ els.explainLink.addEventListener('click',()=>{
   els.modalContent.innerHTML=`<p>Report Time: ${minutesToHHMM(r)}</p>
   <p>Scheduled Duty: ${minutesToHHMM(duty)}</p>
   <p>Scheduled Departure: ${minutesToHHMM(dep)}</p>
-  <p>Max Actual Duty: ${computeMaxActual(r)/60}h</p>
+  <p>Max Scheduled Duty: ${computeMaxActual(r)/60}h</p>
   <p>Time Difference = Max Actual - Scheduled Duty</p>
   <p>Door Closed = Scheduled Departure + Time Difference</p>`;
   els.modalBackdrop.style.display='flex';
