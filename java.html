@@ -1,0 +1,222 @@
+// ULegal Calculator - Main Application Logic
+// © 2026 @facefilatov
+
+/**
+ * Utility Functions
+ */
+const Utils = {
+  // Pad number to 2 digits
+  pad2: (n) => String(n).padStart(2, '0'),
+  
+  // Remove all non-digit characters
+  onlyDigits: (s) => (s || '').replace(/\D/g, ''),
+  
+  // Parse input safely with max value constraint
+  toIntSafe: (s, max) => {
+    const v = Utils.onlyDigits(s);
+    if (!v) return NaN;
+    let n = parseInt(v, 10);
+    return isNaN(n) ? NaN : Math.min(Math.max(n, 0), max ?? n);
+  },
+  
+  // Convert hour and minute inputs to total minutes
+  minutesFromInputs: (hourEl, minEl) => {
+    const hv = Utils.toIntSafe(hourEl.value, 23);
+    const mv = Utils.toIntSafe(minEl.value, 59);
+    return isNaN(hv) && isNaN(mv) 
+      ? NaN 
+      : (isNaN(hv) ? 0 : hv) * 60 + (isNaN(mv) ? 0 : mv);
+  },
+  
+  // Convert minutes to HH:MM format
+  minutesToHHMM: (mins) => {
+    mins = ((Math.round(mins) % 1440) + 1440) % 1440;
+    return Utils.pad2(Math.floor(mins / 60)) + ':' + Utils.pad2(mins % 60);
+  }
+};
+
+/**
+ * Business Logic
+ */
+const Calculator = {
+  // Calculate maximum actual duty hours based on report time
+  computeMaxActual: (reportMinutes) => {
+    return (reportMinutes >= 300 && reportMinutes <= 1139) ? 900 : 690;
+  },
+  
+  // Calculate maximum scheduled duty hours based on report time
+  computeMaxScheduled: (reportMinutes) => {
+    return (reportMinutes >= 300 && reportMinutes <= 1139) ? 780 : 690;
+  },
+  
+  // Main calculation logic
+  calculate: (reportMinutes, dutyMinutes, departureMinutes) => {
+    if (isNaN(reportMinutes) || isNaN(dutyMinutes) || isNaN(departureMinutes)) {
+      return { success: false, message: '—' };
+    }
+    
+    const maxScheduled = Calculator.computeMaxScheduled(reportMinutes);
+    
+    // Check if scheduled duty violates contract
+    if (dutyMinutes > maxScheduled) {
+      return { 
+        success: false, 
+        error: true,
+        message: 'Error. Scheduled duty violates the contract.' 
+      };
+    }
+    
+    const maxActual = Calculator.computeMaxActual(reportMinutes);
+    const diff = maxActual - dutyMinutes;
+    
+    if (diff < 0 || !isFinite(diff)) {
+      return { 
+        success: false, 
+        error: true,
+        message: 'Error. Verify your times' 
+      };
+    }
+    
+    return {
+      success: true,
+      doorClosedMinutes: departureMinutes + diff,
+      doorClosedFormatted: Utils.minutesToHHMM(departureMinutes + diff),
+      maxActual,
+      maxScheduled,
+      diff
+    };
+  }
+};
+
+/**
+ * UI Controller
+ */
+class ULegalUI {
+  constructor() {
+    this.elements = {
+      reportHour: document.getElementById('reportHour'),
+      reportMin: document.getElementById('reportMin'),
+      dutyHours: document.getElementById('dutyHours'),
+      dutyMins: document.getElementById('dutyMins'),
+      depHour: document.getElementById('depHour'),
+      depMin: document.getElementById('depMin'),
+      door: document.getElementById('doorClosed'),
+      explainLink: document.getElementById('explainLink'),
+      modalBackdrop: document.getElementById('modalBackdrop'),
+      modalContent: document.getElementById('modalContent'),
+      closeModal: document.getElementById('closeModal')
+    };
+    
+    this.init();
+  }
+  
+  init() {
+    this.wireInputs();
+    this.attachEventListeners();
+  }
+  
+  wireInputs() {
+    this.wireInput(this.elements.reportHour, 23, this.elements.reportMin);
+    this.wireInput(this.elements.reportMin, 59, this.elements.dutyHours);
+    this.wireInput(this.elements.dutyHours, 23, this.elements.dutyMins);
+    this.wireInput(this.elements.dutyMins, 59, this.elements.depHour);
+    this.wireInput(this.elements.depHour, 23, this.elements.depMin);
+    this.wireInput(this.elements.depMin, 59);
+  }
+  
+  wireInput(el, max, nextEl = null) {
+    el.addEventListener('input', () => {
+      const raw = Utils.onlyDigits(el.value);
+      if (!raw) {
+        el.value = '';
+        this.resetOutput();
+        return;
+      }
+      
+      let n = parseInt(raw, 10);
+      if (!isNaN(n)) {
+        n = Math.max(0, Math.min(n, max));
+        el.value = Utils.pad2(n);
+        if (raw.length >= 2 && nextEl) nextEl.focus();
+      }
+      this.update();
+    });
+    
+    el.addEventListener('blur', () => {
+      if (el.value) {
+        el.value = Utils.pad2(parseInt(Utils.onlyDigits(el.value) || '0', 10));
+      }
+    });
+    
+    el.addEventListener('paste', (ev) => {
+      if (/\D/.test((ev.clipboardData || window.clipboardData).getData('text'))) {
+        ev.preventDefault();
+      }
+    });
+    
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key.length === 1 && /\D/.test(ev.key)) {
+        ev.preventDefault();
+      }
+    });
+  }
+  
+  resetOutput() {
+    this.elements.door.textContent = '—';
+    this.elements.door.classList.remove('error');
+  }
+  
+  update() {
+    this.resetOutput();
+    
+    const reportMinutes = Utils.minutesFromInputs(this.elements.reportHour, this.elements.reportMin);
+    const dutyMinutes = Utils.minutesFromInputs(this.elements.dutyHours, this.elements.dutyMins);
+    const departureMinutes = Utils.minutesFromInputs(this.elements.depHour, this.elements.depMin);
+    
+    const result = Calculator.calculate(reportMinutes, dutyMinutes, departureMinutes);
+    
+    if (!result.success) {
+      if (result.error) {
+        this.elements.door.classList.add('error');
+      }
+      this.elements.door.textContent = result.message;
+      return;
+    }
+    
+    this.elements.door.textContent = result.doorClosedFormatted;
+  }
+  
+  attachEventListeners() {
+    this.elements.explainLink.addEventListener('click', () => this.showModal());
+    this.elements.closeModal.addEventListener('click', () => this.hideModal());
+  }
+  
+  showModal() {
+    const reportMinutes = Utils.minutesFromInputs(this.elements.reportHour, this.elements.reportMin);
+    const dutyMinutes = Utils.minutesFromInputs(this.elements.dutyHours, this.elements.dutyMins);
+    const departureMinutes = Utils.minutesFromInputs(this.elements.depHour, this.elements.depMin);
+    
+    const maxActual = Calculator.computeMaxActual(reportMinutes);
+    const maxScheduled = Calculator.computeMaxScheduled(reportMinutes);
+    
+    this.elements.modalContent.innerHTML = `
+      <p>Report Time: ${Utils.minutesToHHMM(reportMinutes)}</p>
+      <p>Scheduled Duty: ${Utils.minutesToHHMM(dutyMinutes)}</p>
+      <p>Scheduled Departure: ${Utils.minutesToHHMM(departureMinutes)}</p>
+      <p>Max Scheduled Duty: ${maxScheduled / 60}h</p>
+      <p>Max Actual Duty: ${maxActual / 60}h</p>
+      <p>Time Difference = Max Actual - Scheduled Duty</p>
+      <p>Door Closed = Scheduled Departure + Time Difference</p>
+    `;
+    this.elements.modalBackdrop.style.display = 'flex';
+  }
+  
+  hideModal() {
+    this.elements.modalBackdrop.style.display = 'none';
+  }
+}
+
+// Initialize the application when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  new ULegalUI();
+});
